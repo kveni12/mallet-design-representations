@@ -1,0 +1,1214 @@
+<title>Mallet Mesh Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+
+<style>
+  :root {
+    --bg: #eef1f4;
+    --surface: #ffffff;
+    --surface-2: #e4e9ee;
+    --border: #ccd3dc;
+    --text: #101720;
+    --text-dim: #57616f;
+    --accent: #0f7d8c;
+    --accent-soft: #0f7d8c26;
+    --accent-2: #d9611c;
+    --canvas-bg: #dbe1e8;
+    --mesh-color: #7fb8c2;
+    --edge-color: #0f7d8c;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117;
+      --surface: #151b23;
+      --surface-2: #1c232c;
+      --border: #2a323d;
+      --text: #e6e9ee;
+      --text-dim: #8b93a3;
+      --accent: #2dd4bf;
+      --accent-soft: #2dd4bf26;
+      --accent-2: #f0883e;
+      --canvas-bg: #090c10;
+      --mesh-color: #1f5a58;
+      --edge-color: #2dd4bf;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0d1117;
+    --surface: #151b23;
+    --surface-2: #1c232c;
+    --border: #2a323d;
+    --text: #e6e9ee;
+    --text-dim: #8b93a3;
+    --accent: #2dd4bf;
+    --accent-soft: #2dd4bf26;
+    --accent-2: #f0883e;
+    --canvas-bg: #090c10;
+    --mesh-color: #1f5a58;
+    --edge-color: #2dd4bf;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    padding-inline: max(20px, calc(env(safe-area-inset-left, 0px) + 16px)) max(20px, calc(env(safe-area-inset-right, 0px) + 16px));
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .title-block { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+  h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .provenance {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+  }
+
+  .provenance b { color: var(--accent); font-weight: 500; }
+
+  .mode-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 2px;
+  }
+
+  .mode-tabs button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+
+  .mode-tabs button[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+
+  main {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: var(--canvas-bg);
+  }
+
+  #viewport { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #viewport:active { cursor: grabbing; }
+
+  .hint {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 5px 9px;
+    border-radius: 4px;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  .loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .loading[hidden] { display: none; }
+
+  .dock {
+    flex: 0 0 auto;
+    padding: 16px 20px;
+    padding-inline: max(20px, calc(env(safe-area-inset-left, 0px) + 16px)) max(20px, calc(env(safe-area-inset-right, 0px) + 16px));
+    padding-bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .dock-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .slider-block { flex: 1 1 260px; min-width: 220px; }
+
+  .slider-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .slider-label-row span[data-active="true"] { color: var(--accent); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--accent) 0 50%, var(--border) 50% 100%);
+    outline: none;
+    margin: 0;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--accent-2);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--accent-2);
+    cursor: pointer;
+  }
+
+  .stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    font-family: "IBM Plex Mono", monospace;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: 84px;
+  }
+
+  .stat .k {
+    font-size: 9.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+  }
+
+  .stat .v {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .edges-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .edges-toggle input {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+  }
+
+  .surface-panel {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    max-width: 240px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.35);
+  }
+  .surface-panel[hidden] { display: none; }
+
+  .surface-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .surface-swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex: 0 0 auto;
+  }
+
+  .surface-panel-head .name {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .surface-panel dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    margin: 0;
+  }
+
+  .surface-panel dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .surface-panel dd {
+    margin: 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .surface-panel .clear-hint {
+    margin-top: 7px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  .dock-row[hidden] { display: none; }
+
+  .axis-group {
+    display: flex;
+    gap: 2px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 2px;
+    flex: 0 0 auto;
+  }
+
+  .axis-group button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    width: 28px;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 0;
+    cursor: pointer;
+  }
+
+  .axis-group button[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--accent-2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+
+  .flip-btn {
+    flex: 0 0 auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 11px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex: 0 0 auto;
+  }
+</style>
+
+<header>
+  <div class="title-block">
+    <h1>Mallet Mesh Explorer</h1>
+    <span class="provenance">gmsh <b>4.15.2</b> · <span id="modeDesc">triangulated surface mesh</span> · <b>CMU/Tools/mallet</b> · NIST Engineering Design Model Repository</span>
+  </div>
+  <div class="mode-tabs" role="tablist" aria-label="Mesh representation">
+    <button id="tabSurface" type="button" aria-selected="true">Surface</button>
+    <button id="tabVolume" type="button" aria-selected="false">Volume (tet)</button>
+    <button id="tabVoxel" type="button" aria-selected="false">Voxel</button>
+    <button id="tabSdf" type="button" aria-selected="false">SDF</button>
+  </div>
+</header>
+
+<main>
+  <canvas id="viewport"></canvas>
+  <div class="hint" id="hintText">drag to orbit · scroll to zoom · click a face to select its surface</div>
+  <div class="loading" id="loading">meshing…</div>
+  <div class="surface-panel" id="surfacePanel" hidden>
+    <div class="surface-panel-head">
+      <span class="surface-swatch" id="surfaceSwatch"></span>
+      <span class="name" id="surfaceName">—</span>
+    </div>
+    <dl>
+      <dt>Triangles</dt><dd id="surfaceTris">—</dd>
+      <dt>Share of mesh</dt><dd id="surfaceShare">—</dd>
+      <dt>Area</dt><dd id="surfaceArea">—</dd>
+    </dl>
+    <div class="clear-hint">click again to clear</div>
+  </div>
+</main>
+
+<div class="dock">
+  <div class="dock-row">
+    <div class="slider-block">
+      <div class="slider-label-row">
+        <span id="lbl-low">Low</span>
+        <span id="lbl-medium" data-active="true">Medium</span>
+        <span id="lbl-high">High</span>
+      </div>
+      <input type="range" id="resSlider" min="0" max="2" step="1" value="1" aria-label="Mesh resolution">
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span class="k" id="statVertsLabel">Vertices</span><span class="v" id="statVerts">—</span></div>
+      <div class="stat"><span class="k" id="statTrisLabel">Triangles</span><span class="v" id="statTris">—</span></div>
+      <div class="stat"><span class="k" id="statSizeLabel">Edge length</span><span class="v" id="statSize">—</span></div>
+    </div>
+
+    <label class="edges-toggle" id="edgesToggleRow">
+      <input type="checkbox" id="edgesToggle" checked>
+      show mesh edges
+    </label>
+  </div>
+
+  <div class="dock-row" id="sliceRow" hidden>
+    <div class="axis-group" role="group" aria-label="Slice axis">
+      <button data-axis="0" type="button" aria-selected="true">X</button>
+      <button data-axis="1" type="button" aria-selected="false">Y</button>
+      <button data-axis="2" type="button" aria-selected="false">Z</button>
+    </div>
+
+    <div class="slider-block" style="flex: 1 1 200px;">
+      <div class="slider-label-row">
+        <span>Slice position</span>
+        <span id="slicePosLabel" data-active="true">50%</span>
+      </div>
+      <input type="range" id="sliceSlider" min="0" max="100" step="1" value="50" aria-label="Slice plane position">
+    </div>
+
+    <button class="flip-btn" id="flipBtn" type="button">⇄ flip kept side</button>
+
+    <div class="legend">
+      <span class="legend-item"><span class="legend-swatch" id="legendSkin"></span><span id="legendSkinLabel">skin</span></span>
+      <span class="legend-item" id="legendCutRow"><span class="legend-swatch" id="legendCut"></span>cut face</span>
+    </div>
+  </div>
+
+  <div class="dock-row" id="isoRow" hidden>
+    <div class="slider-block" style="flex: 1 1 260px;">
+      <div class="slider-label-row">
+        <span>Iso-surface offset</span>
+        <span id="isoValueLabel" data-active="true">0.0 (true surface)</span>
+      </div>
+      <input type="range" id="isoSlider" min="0" max="12" step="1" value="6" aria-label="Signed-distance iso-surface offset">
+      <div class="slider-label-row" style="margin-top: 4px; margin-bottom: 0;">
+        <span>← dilate</span>
+        <span>erode →</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const LEVELS = ["low", "medium", "high"];
+  const canvas = document.getElementById("viewport");
+  const loadingEl = document.getElementById("loading");
+  const slider = document.getElementById("resSlider");
+  const edgesToggle = document.getElementById("edgesToggle");
+  const statVerts = document.getElementById("statVerts");
+  const statTris = document.getElementById("statTris");
+  const statSize = document.getElementById("statSize");
+  const labelEls = { low: document.getElementById("lbl-low"), medium: document.getElementById("lbl-medium"), high: document.getElementById("lbl-high") };
+
+  const surfacePanel = document.getElementById("surfacePanel");
+  const surfaceSwatch = document.getElementById("surfaceSwatch");
+  const surfaceName = document.getElementById("surfaceName");
+  const surfaceTris = document.getElementById("surfaceTris");
+  const surfaceShare = document.getElementById("surfaceShare");
+  const surfaceArea = document.getElementById("surfaceArea");
+
+  const tabSurface = document.getElementById("tabSurface");
+  const tabVolume = document.getElementById("tabVolume");
+  const tabVoxel = document.getElementById("tabVoxel");
+  const tabSdf = document.getElementById("tabSdf");
+  const isoRow = document.getElementById("isoRow");
+  const isoSlider = document.getElementById("isoSlider");
+  const isoValueLabel = document.getElementById("isoValueLabel");
+  const modeDesc = document.getElementById("modeDesc");
+  const hintText = document.getElementById("hintText");
+  const statVertsLabel = document.getElementById("statVertsLabel");
+  const statTrisLabel = document.getElementById("statTrisLabel");
+  const statSizeLabel = document.getElementById("statSizeLabel");
+  const sliceRow = document.getElementById("sliceRow");
+  const axisButtons = Array.from(document.querySelectorAll(".axis-group button"));
+  const sliceSlider = document.getElementById("sliceSlider");
+  const slicePosLabel = document.getElementById("slicePosLabel");
+  const flipBtn = document.getElementById("flipBtn");
+  const legendSkin = document.getElementById("legendSkin");
+  const legendCut = document.getElementById("legendCut");
+  const legendSkinLabel = document.getElementById("legendSkinLabel");
+  const legendCutRow = document.getElementById("legendCutRow");
+  const edgesToggleRow = document.getElementById("edgesToggleRow");
+
+  let mode = "surface";           // "surface" | "volume" | "voxel" | "sdf"
+  let volumeData = null;          // lazy-loaded
+  let volumeLoading = false;
+  let currentVolumeLevel = "medium";
+  let voxelData = null;           // lazy-loaded
+  let voxelLoading = false;
+  let currentVoxelLevel = "medium";
+  let sdfData = null;             // lazy-loaded
+  let sdfLoading = false;
+  let currentSdfLevel = "medium";
+  let sdfIsoIndex = 6;
+  let sliceAxis = 0;              // 0=x 1=y 2=z
+  let sliceFrac = 0.5;            // 0..1 along that axis' bbox extent
+  let sliceFlip = false;
+
+  function css(varName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  // deterministic, well-spread hue per geometric surface id (golden-angle distribution)
+  function surfaceHighlightColor(surfaceId, alpha) {
+    const hue = (surfaceId * 0.618033988749895) % 1;
+    const c = new THREE.Color().setHSL(hue, 0.55, alpha);
+    return c;
+  }
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9);
+  key.position.set(1, 1.4, 1);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+  fill.position.set(-1, -0.4, -0.6);
+  scene.add(fill);
+
+  let meshObj = null;
+  let edgesObj = null;
+  let meshData = null;
+  let currentLevel = "medium";
+  let colorAttr = null;      // per-vertex color attribute of the active (non-indexed) geometry
+  let triSurfaceIds = null;  // triSurfaceIds[triangleIndex] -> surface tag
+  let baseColor = new THREE.Color();
+  let hoveredSurface = null;
+  let selectedSurface = null;
+  let target = new THREE.Vector3(0, 0, 0);
+  let radius = 500, theta = Math.PI * 0.28, phi = Math.PI * 0.38;
+
+  // shared unit-box geometry reused by every voxel InstancedMesh rebuild —
+  // must never be disposed while any mode might still reference it
+  function disposeActiveMesh() {
+    if (!meshObj) return;
+    scene.remove(meshObj);
+    if (meshObj.geometry !== voxelBoxGeo) meshObj.geometry.dispose();
+    meshObj.material.dispose();
+    meshObj = null;
+  }
+  function disposeActiveEdges() {
+    if (!edgesObj) return;
+    scene.remove(edgesObj);
+    edgesObj.geometry.dispose();
+    edgesObj.material.dispose();
+    edgesObj = null;
+  }
+
+  function updateCamera() {
+    camera.position.set(
+      target.x + radius * Math.sin(phi) * Math.sin(theta),
+      target.y + radius * Math.cos(phi),
+      target.z + radius * Math.sin(phi) * Math.cos(theta)
+    );
+    camera.lookAt(target);
+  }
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w === 0 || h === 0) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(canvas);
+
+  let dragging = false, lastX = 0, lastY = 0, downX = 0, downY = 0;
+  canvas.addEventListener("pointerdown", (e) => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY; downX = e.clientX; downY = e.clientY;
+    canvas.style.cursor = "grabbing";
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    dragging = false;
+    const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
+    if (moved < 4) handleClick(e);
+    // force hover state to re-evaluate against the (possibly just-changed) selection
+    hoveredSurface = "__stale__";
+    handleHover(e);
+  });
+  canvas.addEventListener("pointercancel", () => dragging = false);
+  canvas.addEventListener("pointerleave", () => setHover(null));
+  canvas.addEventListener("pointermove", (e) => {
+    if (dragging) {
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      theta -= dx * 0.006;
+      phi = Math.min(Math.PI - 0.08, Math.max(0.08, phi - dy * 0.006));
+      updateCamera();
+    } else {
+      handleHover(e);
+    }
+  });
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    radius = Math.min(4000, Math.max(40, radius * (1 + e.deltaY * 0.0012)));
+    updateCamera();
+  }, { passive: false });
+
+  // --- picking -------------------------------------------------------
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+
+  function surfaceAtEvent(e) {
+    if (mode !== "surface" || !meshObj) return null;
+    const rect = canvas.getBoundingClientRect();
+    pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointerNDC, camera);
+    const hits = raycaster.intersectObject(meshObj, false);
+    if (hits.length === 0) return null;
+    return { surfaceId: triSurfaceIds[hits[0].faceIndex], triIndex: hits[0].faceIndex };
+  }
+
+  function paintSurface(surfaceId, color) {
+    if (!colorAttr || surfaceId == null) return;
+    const arr = colorAttr.array;
+    for (let t = 0; t < triSurfaceIds.length; t++) {
+      if (triSurfaceIds[t] !== surfaceId) continue;
+      const base = t * 9;
+      for (let v = 0; v < 3; v++) {
+        arr[base + v * 3] = color.r;
+        arr[base + v * 3 + 1] = color.g;
+        arr[base + v * 3 + 2] = color.b;
+      }
+    }
+    colorAttr.needsUpdate = true;
+  }
+
+  function repaintBase(surfaceId) { paintSurface(surfaceId, baseColor); }
+
+  function setHover(surfaceId) {
+    if (surfaceId === hoveredSurface) return;
+    if (hoveredSurface != null && hoveredSurface !== selectedSurface) repaintBase(hoveredSurface);
+    hoveredSurface = surfaceId;
+    if (hoveredSurface != null && hoveredSurface !== selectedSurface) {
+      paintSurface(hoveredSurface, surfaceHighlightColor(hoveredSurface, 0.68));
+    }
+    canvas.style.cursor = dragging ? "grabbing" : (surfaceId != null ? "pointer" : "grab");
+  }
+
+  function handleHover(e) {
+    const hit = surfaceAtEvent(e);
+    setHover(hit ? hit.surfaceId : null);
+  }
+
+  function showSurfacePanel(surfaceId) {
+    const d = meshData[currentLevel];
+    let triCount = 0, area = 0;
+    const pos = d.positions;
+    for (let t = 0; t < d.triCount; t++) {
+      if (d.surfaceIds[t] !== surfaceId) continue;
+      triCount++;
+      const ia = d.indices[t*3] * 3, ib = d.indices[t*3+1] * 3, ic = d.indices[t*3+2] * 3;
+      const ax = pos[ia], ay = pos[ia+1], az = pos[ia+2];
+      const bx = pos[ib] - ax, by = pos[ib+1] - ay, bz = pos[ib+2] - az;
+      const cx = pos[ic] - ax, cy = pos[ic+1] - ay, cz = pos[ic+2] - az;
+      const crossX = by*cz - bz*cy, crossY = bz*cx - bx*cz, crossZ = bx*cy - by*cx;
+      area += 0.5 * Math.sqrt(crossX*crossX + crossY*crossY + crossZ*crossZ);
+    }
+    surfaceSwatch.style.background = "#" + surfaceHighlightColor(surfaceId, 0.5).getHexString();
+    surfaceName.textContent = "Surface " + surfaceId;
+    surfaceTris.textContent = triCount.toLocaleString();
+    surfaceShare.textContent = ((triCount / d.triCount) * 100).toFixed(1) + "%";
+    surfaceArea.textContent = area.toFixed(1) + " u²";
+    surfacePanel.hidden = false;
+  }
+
+  function selectSurface(surfaceId) {
+    if (selectedSurface != null) repaintBase(selectedSurface);
+    if (surfaceId === selectedSurface) {
+      selectedSurface = null;
+      surfacePanel.hidden = true;
+      return;
+    }
+    selectedSurface = surfaceId;
+    if (selectedSurface != null) {
+      paintSurface(selectedSurface, surfaceHighlightColor(selectedSurface, 0.55));
+      showSurfacePanel(selectedSurface);
+    } else {
+      surfacePanel.hidden = true;
+    }
+  }
+
+  function handleClick(e) {
+    const hit = surfaceAtEvent(e);
+    selectSurface(hit ? hit.surfaceId : null);
+  }
+
+  function buildGeometry(level) {
+    const d = meshData[level];
+    const indexedGeo = new THREE.BufferGeometry();
+    indexedGeo.setAttribute("position", new THREE.Float32BufferAttribute(d.positions, 3));
+    indexedGeo.setIndex(d.indices);
+    indexedGeo.computeVertexNormals();
+
+    const paintGeo = indexedGeo.toNonIndexed();
+    paintGeo.computeVertexNormals();
+
+    return { indexedGeo, paintGeo };
+  }
+
+  function setSurfaceLevel(level) {
+    if (!meshData) return;
+    currentLevel = level;
+    const d = meshData[level];
+
+    disposeActiveMesh();
+    disposeActiveEdges();
+
+    const { indexedGeo, paintGeo } = buildGeometry(level);
+    triSurfaceIds = d.surfaceIds;
+
+    baseColor = new THREE.Color(css("--mesh-color") || "#7fb8c2");
+    const vertCount = paintGeo.attributes.position.count;
+    const colors = new Float32Array(vertCount * 3);
+    for (let i = 0; i < vertCount; i++) {
+      colors[i*3] = baseColor.r; colors[i*3+1] = baseColor.g; colors[i*3+2] = baseColor.b;
+    }
+    colorAttr = new THREE.Float32BufferAttribute(colors, 3);
+    paintGeo.setAttribute("color", colorAttr);
+
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.65,
+      metalness: 0.08,
+      side: THREE.DoubleSide,
+    });
+    meshObj = new THREE.Mesh(paintGeo, material);
+    scene.add(meshObj);
+
+    const edgeGeo = new THREE.EdgesGeometry(indexedGeo, 1);
+    indexedGeo.dispose();
+    const edgeMat = new THREE.LineBasicMaterial({ color: new THREE.Color(css("--edge-color") || "#0f7d8c") });
+    edgesObj = new THREE.LineSegments(edgeGeo, edgeMat);
+    edgesObj.visible = edgesToggle.checked;
+    scene.add(edgesObj);
+
+    // surface ids are stable across resolution levels (same B-rep, denser tessellation) —
+    // carry hover/selection state through a resolution change
+    if (selectedSurface != null) {
+      paintSurface(selectedSurface, surfaceHighlightColor(selectedSurface, 0.55));
+      showSurfacePanel(selectedSurface);
+    }
+    hoveredSurface = null;
+
+    statVerts.textContent = d.nodeCount.toLocaleString();
+    statTris.textContent = d.triCount.toLocaleString();
+    statSize.textContent = d.meshSize.toFixed(1) + " u";
+
+    LEVELS.forEach((l) => labelEls[l].removeAttribute("data-active"));
+    labelEls[level].setAttribute("data-active", "true");
+  }
+
+  edgesToggle.addEventListener("change", () => { if (edgesObj) edgesObj.visible = edgesToggle.checked; });
+  slider.addEventListener("input", () => {
+    const level = LEVELS[+slider.value];
+    if (mode === "surface") setSurfaceLevel(level);
+    else if (mode === "volume") setVolumeLevel(level);
+    else if (mode === "voxel") setVoxelLevel(level);
+    else setSdfLevel(level);
+  });
+
+  // --- volume (tetrahedral) mode --------------------------------------
+  // exposed-face reconstruction: for a subset of "kept" tets, a face is drawn
+  // iff it has exactly one kept incident tet — this is the *real* boundary of
+  // the sliced sub-volume (original skin faces + newly exposed cut faces),
+  // not a fake GPU clip plane.
+
+  function skinColor() { return new THREE.Color(css("--mesh-color") || "#7fb8c2"); }
+  function cutColor() { return new THREE.Color(css("--accent-2") || "#d9611c"); }
+
+  function updateSlice() {
+    if (mode !== "volume" || !volumeData) return;
+    const d = volumeData[currentVolumeLevel];
+
+    const bb = d.bbox;
+    const lo = bb[sliceAxis], hi = bb[sliceAxis + 3];
+    const planeCoord = lo + sliceFrac * (hi - lo);
+
+    const tetCount = d.tetCount;
+    const keep = new Uint8Array(tetCount);
+    for (let t = 0; t < tetCount; t++) {
+      const c = d.tetCentroids[t * 3 + sliceAxis];
+      const below = c <= planeCoord;
+      keep[t] = (sliceFlip ? !below : below) ? 1 : 0;
+    }
+
+    const faceCount = d.faceTetA.length;
+    // preallocate to the worst case (every face drawn) and track a write cursor —
+    // avoids push()-driven array growth on a handler that fires on every drag frame
+    const positions = new Float32Array(faceCount * 9);
+    const colors = new Float32Array(faceCount * 9);
+    let w = 0;
+    const skin = skinColor();
+    const cut = cutColor();
+    let cutFaceCount = 0, visibleTetCount = 0;
+    for (let t = 0; t < tetCount; t++) if (keep[t]) visibleTetCount++;
+
+    for (let f = 0; f < faceCount; f++) {
+      const tetA = d.faceTetA[f], tetB = d.faceTetB[f];
+      const va = d.faceVerts[f * 3], vb = d.faceVerts[f * 3 + 1], vc = d.faceVerts[f * 3 + 2];
+      let a = va, b = vb, c = vc, col = skin;
+
+      if (tetB === -1) {
+        if (!keep[tetA]) continue; // original skin, discarded side
+      } else {
+        const kA = !!keep[tetA], kB = !!keep[tetB];
+        if (kA === kB) continue; // both kept (interior, hidden) or both discarded
+        if (kA) {
+          // outward from tetA already — correct as-is
+          col = cut; cutFaceCount++;
+        } else {
+          // expose from tetB's side: reverse winding
+          b = vc; c = vb;
+          col = cut; cutFaceCount++;
+        }
+      }
+
+      const pa = a * 3, pb = b * 3, pc = c * 3;
+      positions[w] = d.positions[pa]; positions[w+1] = d.positions[pa+1]; positions[w+2] = d.positions[pa+2];
+      positions[w+3] = d.positions[pb]; positions[w+4] = d.positions[pb+1]; positions[w+5] = d.positions[pb+2];
+      positions[w+6] = d.positions[pc]; positions[w+7] = d.positions[pc+1]; positions[w+8] = d.positions[pc+2];
+      colors[w] = col.r; colors[w+1] = col.g; colors[w+2] = col.b;
+      colors[w+3] = col.r; colors[w+4] = col.g; colors[w+5] = col.b;
+      colors[w+6] = col.r; colors[w+7] = col.g; colors[w+8] = col.b;
+      w += 9;
+    }
+
+    disposeActiveMesh();
+    disposeActiveEdges();
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions.subarray(0, w), 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors.subarray(0, w), 3));
+    geo.computeVertexNormals();
+
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.65,
+      metalness: 0.08,
+      side: THREE.DoubleSide,
+    });
+    meshObj = new THREE.Mesh(geo, material);
+    scene.add(meshObj);
+
+    const edgeMat = new THREE.LineBasicMaterial({ color: new THREE.Color(css("--edge-color") || "#0f7d8c") });
+    edgesObj = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 1), edgeMat);
+    edgesObj.visible = edgesToggle.checked;
+    scene.add(edgesObj);
+
+    statVerts.textContent = d.tetCount.toLocaleString();
+    statTris.textContent = visibleTetCount.toLocaleString();
+    statSize.textContent = cutFaceCount.toLocaleString();
+  }
+
+  function setVolumeLevel(level) {
+    currentVolumeLevel = level;
+    LEVELS.forEach((l) => labelEls[l].removeAttribute("data-active"));
+    labelEls[level].setAttribute("data-active", "true");
+    updateSlice();
+  }
+
+  function loadVolumeData() {
+    if (volumeData || volumeLoading) return Promise.resolve();
+    volumeLoading = true;
+    loadingEl.hidden = false;
+    loadingEl.textContent = "tetrahedralizing…";
+    return fetch("volume_data.json")
+      .then((r) => r.json())
+      .then((data) => { volumeData = data; })
+      .catch((err) => {
+        loadingEl.textContent = "failed to load volume data";
+        console.error(err);
+      })
+      .finally(() => { volumeLoading = false; loadingEl.hidden = !!volumeData; });
+  }
+
+  // --- voxel mode -------------------------------------------------------
+  // trimesh.voxelized(pitch).fill() on the CPU side produces a *solid* grid
+  // (interior included, not a hollow shell). Rendered here as opaque cubes —
+  // no alpha blending — so the slicer is the only way to see inside.
+
+  const voxelBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+  const dummyMatrix = new THREE.Matrix4();
+
+  function updateVoxelSlice() {
+    if (mode !== "voxel" || !voxelData) return;
+    const d = voxelData[currentVoxelLevel];
+    const bb = d.bbox;
+    const lo = bb[sliceAxis], hi = bb[sliceAxis + 3];
+    const planeCoord = lo + sliceFrac * (hi - lo);
+
+    disposeActiveMesh();
+    disposeActiveEdges();
+
+    const kept = [];
+    for (let i = 0; i < d.voxelCount; i++) {
+      const c = d.centers[i * 3 + sliceAxis];
+      const below = c <= planeCoord;
+      if (sliceFlip ? !below : below) kept.push(i);
+    }
+
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(css("--mesh-color") || "#7fb8c2"),
+      roughness: 0.7,
+      metalness: 0.05,
+      transparent: false,
+      opacity: 1,
+    });
+    const inst = new THREE.InstancedMesh(voxelBoxGeo, material, Math.max(kept.length, 1));
+    const gap = 0.92; // small gap between cubes reads as a grid without drawing edges
+    const s = d.pitch * gap;
+    for (let k = 0; k < kept.length; k++) {
+      const i = kept[k];
+      dummyMatrix.makeScale(s, s, s);
+      dummyMatrix.setPosition(d.centers[i * 3], d.centers[i * 3 + 1], d.centers[i * 3 + 2]);
+      inst.setMatrixAt(k, dummyMatrix);
+    }
+    inst.count = kept.length;
+    inst.instanceMatrix.needsUpdate = true;
+    meshObj = inst;
+    scene.add(meshObj);
+
+    statVerts.textContent = d.voxelCount.toLocaleString();
+    statTris.textContent = kept.length.toLocaleString();
+    statSize.textContent = d.pitch.toFixed(1) + " u";
+  }
+
+  function setVoxelLevel(level) {
+    currentVoxelLevel = level;
+    LEVELS.forEach((l) => labelEls[l].removeAttribute("data-active"));
+    labelEls[level].setAttribute("data-active", "true");
+    updateVoxelSlice();
+  }
+
+  function loadVoxelData() {
+    if (voxelData || voxelLoading) return Promise.resolve();
+    voxelLoading = true;
+    loadingEl.hidden = false;
+    loadingEl.textContent = "voxelizing…";
+    return fetch("voxel_data.json")
+      .then((r) => r.json())
+      .then((data) => { voxelData = data; })
+      .catch((err) => {
+        loadingEl.textContent = "failed to load voxel data";
+        console.error(err);
+      })
+      .finally(() => { voxelLoading = false; loadingEl.hidden = !!voxelData; });
+  }
+
+  // --- SDF (implicit) mode ----------------------------------------------
+  // each level ships a dense signed-distance grid pre-sampled at 13 fixed
+  // offsets and already run through marching cubes server-side (trimesh's
+  // signed_distance is positive INSIDE the solid, negative outside) — the
+  // slider just swaps in the precomputed triangulation for that offset.
+  // Smooth-shaded (indexed geometry, no faceting) to read as a continuous
+  // field rather than a discrete mesh.
+
+  function isoLabelFor(iso) {
+    if (Math.abs(iso) < 0.3) return iso.toFixed(1) + " (true surface)";
+    if (iso > 0) return iso.toFixed(1) + " (eroded)";
+    return iso.toFixed(1) + " (dilated)";
+  }
+
+  function buildSdfGeometry() {
+    if (!sdfData) return;
+    const d = sdfData[currentSdfLevel];
+    const lv = d.isoLevels[sdfIsoIndex];
+
+    disposeActiveMesh();
+    disposeActiveEdges();
+
+    isoValueLabel.textContent = isoLabelFor(lv.iso);
+    statVerts.textContent = (d.gridN + "³");
+    statTris.textContent = lv.triCount.toLocaleString();
+    statSize.textContent = lv.iso.toFixed(1) + " u";
+
+    if (lv.triCount === 0) return; // fully eroded away at this offset — nothing to draw
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(lv.positions), 3));
+    geo.setIndex(lv.indices);
+    geo.computeVertexNormals(); // smooth — indexed, unlike the faceted modes
+
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(css("--mesh-color") || "#7fb8c2"),
+      roughness: 0.5,
+      metalness: 0.05,
+      side: THREE.DoubleSide,
+    });
+    meshObj = new THREE.Mesh(geo, material);
+    scene.add(meshObj);
+
+    const edgeMat = new THREE.LineBasicMaterial({ color: new THREE.Color(css("--edge-color") || "#0f7d8c") });
+    edgesObj = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 15), edgeMat);
+    edgesObj.visible = edgesToggle.checked;
+    scene.add(edgesObj);
+  }
+
+  function setSdfLevel(level) {
+    currentSdfLevel = level;
+    LEVELS.forEach((l) => labelEls[l].removeAttribute("data-active"));
+    labelEls[level].setAttribute("data-active", "true");
+    buildSdfGeometry();
+  }
+
+  function loadSdfData() {
+    if (sdfData || sdfLoading) return Promise.resolve();
+    sdfLoading = true;
+    loadingEl.hidden = false;
+    loadingEl.textContent = "sampling distance field…";
+    return fetch("sdf_data.json")
+      .then((r) => r.json())
+      .then((data) => {
+        sdfData = data;
+        // pick the offset closest to 0 (the true boundary) as the starting point
+        const levels = data[currentSdfLevel].isoLevels;
+        let best = 0, bestDist = Infinity;
+        levels.forEach((lv, i) => { const dist = Math.abs(lv.iso); if (dist < bestDist) { bestDist = dist; best = i; } });
+        sdfIsoIndex = best;
+        isoSlider.max = String(levels.length - 1);
+        isoSlider.value = String(best);
+      })
+      .catch((err) => {
+        loadingEl.textContent = "failed to load SDF data";
+        console.error(err);
+      })
+      .finally(() => { sdfLoading = false; loadingEl.hidden = !!sdfData; });
+  }
+
+  isoSlider.addEventListener("input", () => {
+    sdfIsoIndex = +isoSlider.value;
+    buildSdfGeometry();
+  });
+
+  function setMode(next) {
+    if (mode === next) return;
+    mode = next;
+    tabSurface.setAttribute("aria-selected", String(mode === "surface"));
+    tabVolume.setAttribute("aria-selected", String(mode === "volume"));
+    tabVoxel.setAttribute("aria-selected", String(mode === "voxel"));
+    tabSdf.setAttribute("aria-selected", String(mode === "sdf"));
+    sliceRow.hidden = !(mode === "volume" || mode === "voxel");
+    isoRow.hidden = mode !== "sdf";
+    edgesToggleRow.hidden = mode === "voxel";
+    legendCutRow.hidden = mode === "voxel";
+    legendSkinLabel.textContent = mode === "voxel" ? "voxel" : "skin";
+    surfacePanel.hidden = true;
+    selectedSurface = null;
+    hoveredSurface = null;
+
+    if (mode === "surface") {
+      modeDesc.textContent = "triangulated surface mesh";
+      hintText.textContent = "drag to orbit · scroll to zoom · click a face to select its surface";
+      statVertsLabel.textContent = "Vertices";
+      statTrisLabel.textContent = "Triangles";
+      statSizeLabel.textContent = "Edge length";
+      slider.value = String(LEVELS.indexOf(currentLevel));
+      setSurfaceLevel(currentLevel);
+    } else if (mode === "volume") {
+      modeDesc.textContent = "tetrahedral volume mesh";
+      hintText.textContent = "drag to orbit · scroll to zoom · slide to cut through the volume";
+      statVertsLabel.textContent = "Tets";
+      statTrisLabel.textContent = "Visible tets";
+      statSizeLabel.textContent = "Cut faces";
+      slider.value = String(LEVELS.indexOf(currentVolumeLevel));
+      loadVolumeData().then(() => setVolumeLevel(currentVolumeLevel));
+    } else if (mode === "voxel") {
+      modeDesc.textContent = "trimesh voxelization (solid, opaque)";
+      hintText.textContent = "drag to orbit · scroll to zoom · slide to cut through the voxels";
+      statVertsLabel.textContent = "Voxels";
+      statTrisLabel.textContent = "Visible";
+      statSizeLabel.textContent = "Voxel size";
+      slider.value = String(LEVELS.indexOf(currentVoxelLevel));
+      loadVoxelData().then(() => setVoxelLevel(currentVoxelLevel));
+    } else {
+      modeDesc.textContent = "implicit signed-distance field";
+      hintText.textContent = "drag to orbit · scroll to zoom · slide to erode/dilate the iso-surface";
+      statVertsLabel.textContent = "Grid";
+      statTrisLabel.textContent = "Triangles";
+      statSizeLabel.textContent = "Iso offset";
+      slider.value = String(LEVELS.indexOf(currentSdfLevel));
+      loadSdfData().then(() => setSdfLevel(currentSdfLevel));
+    }
+  }
+
+  tabSurface.addEventListener("click", () => setMode("surface"));
+  tabVolume.addEventListener("click", () => setMode("volume"));
+  tabVoxel.addEventListener("click", () => setMode("voxel"));
+  tabSdf.addEventListener("click", () => setMode("sdf"));
+
+  function refreshSlice() {
+    if (mode === "volume") updateSlice();
+    else if (mode === "voxel") updateVoxelSlice();
+  }
+
+  axisButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      sliceAxis = +btn.dataset.axis;
+      axisButtons.forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
+      refreshSlice();
+    });
+  });
+
+  sliceSlider.addEventListener("input", () => {
+    sliceFrac = (+sliceSlider.value) / 100;
+    slicePosLabel.textContent = sliceSlider.value + "%";
+    refreshSlice();
+  });
+
+  flipBtn.addEventListener("click", () => {
+    sliceFlip = !sliceFlip;
+    refreshSlice();
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+
+  fetch("mesh_data.json")
+    .then((r) => r.json())
+    .then((data) => {
+      meshData = data;
+      const bb = data.medium.bbox;
+      target.set((bb[0] + bb[3]) / 2, (bb[1] + bb[4]) / 2, (bb[2] + bb[5]) / 2);
+      const dim = Math.max(bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]);
+      radius = dim * 2.0;
+      updateCamera();
+      resize();
+      setSurfaceLevel("medium");
+      legendSkin.style.background = "#" + skinColor().getHexString();
+      legendCut.style.background = "#" + cutColor().getHexString();
+      loadingEl.hidden = true;
+      animate();
+    })
+    .catch((err) => {
+      loadingEl.textContent = "failed to load mesh data";
+      console.error(err);
+    });
+
+  resize();
+})();
+</script>
